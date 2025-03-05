@@ -1,0 +1,83 @@
+// src/models/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id                 String            @id @default(uuid())
+  stripeChargeId     String?           @unique
+  amount             Float
+  currency           String            @default("USD")
+  status             TransactionStatus
+  type               TransactionType
+  platformCommission Float
+  educatorEarnings   Float
+  userId             String
+  courseId           String
+  educatorId         String
+  description        String?
+  metadata           Json?
+  refundId           String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  invoice            Invoice?
+  auditLogs          AuditLog[]
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  transactionId String        @unique
+  transaction   Transaction   @relation(fields: [transactionId], references: [id])
+  subtotal      Float
+  discount      Float         @default(0)
+  tax           Float         @default(0)
+  total         Float
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime?
+  paidAt        DateTime?
+  status        InvoiceStatus
+  billingInfo   Json?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  action        String
+  actor         String
+  details       String?
+  metadata      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime     @default(now())
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  DISPUTED
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  CANCELLED
+}
