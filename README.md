@@ -10,6 +10,7 @@ This service handles all payment-related operations for the online learning plat
   - [Payments](#payments)
   - [Invoices](#invoices)
   - [Financial Reports](#financial-reports)
+  - [Statistics](#statistics)
 - [Database Models](#database-models)
 - [Testing](#testing)
 
@@ -381,6 +382,169 @@ npm run start:dev
       "totalRefundedEarnings": 450.00,
       "totalActiveCourses": 5,
       "totalSales": 85
+    }
+  }
+  ```
+
+### Statistics
+
+#### Get Transaction Volumes
+
+- **URL**: `/api/statistics/transaction-volumes`
+- **Method**: `GET`
+- **Auth**: Admin only
+- **Description**: Get metrics about transaction volumes
+- **Query Parameters**:
+  - `startDate` (optional): Filter by start date (YYYY-MM-DD)
+  - `endDate` (optional): Filter by end date (YYYY-MM-DD)
+- **Response**: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalTransactions": 1250,
+      "totalVolume": 125000.00,
+      "averageValue": 100.00,
+      "peakPeriods": [
+        {
+          "hour": 14,
+          "count": 120,
+          "volume": 12000.00
+        }
+      ]
+    }
+  }
+  ```
+
+#### Get Performance Metrics
+
+- **URL**: `/api/statistics/performance-metrics`
+- **Method**: `GET`
+- **Auth**: Admin only
+- **Description**: Get metrics about transaction performance
+- **Query Parameters**:
+  - `startDate` (optional): Filter by start date (YYYY-MM-DD)
+  - `endDate` (optional): Filter by end date (YYYY-MM-DD)
+- **Response**: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "statusBreakdown": [
+        {
+          "status": "COMPLETED",
+          "count": 950,
+          "percentage": 95.0
+        },
+        {
+          "status": "FAILED",
+          "count": 50,
+          "percentage": 5.0
+        }
+      ],
+      "avgProcessingTime": 1250,
+      "errorRatesByPaymentMethod": [
+        {
+          "paymentMethod": "credit_card",
+          "totalCount": 800,
+          "failedCount": 30,
+          "errorRate": 3.75
+        }
+      ]
+    }
+  }
+  ```
+
+#### Get Financial Analysis
+
+- **URL**: `/api/statistics/financial-analysis`
+- **Method**: `GET`
+- **Auth**: Admin only
+- **Description**: Get financial analysis metrics
+- **Query Parameters**:
+  - `startDate` (optional): Filter by start date (YYYY-MM-DD)
+  - `endDate` (optional): Filter by end date (YYYY-MM-DD)
+  - `groupBy` (optional): Group results by period - 'daily', 'weekly', or 'monthly' (default: 'daily')
+- **Response**: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "revenueByTimePeriod": [
+        {
+          "period": "2023-01-01",
+          "revenue": 5000.00,
+          "refunds": 250.00,
+          "netRevenue": 4750.00
+        }
+      ],
+      "revenueByPaymentMethod": [
+        {
+          "paymentMethod": "credit_card",
+          "revenue": 85000.00,
+          "count": 800,
+          "percentage": 85.0
+        }
+      ]
+    }
+  }
+  ```
+
+#### Get Payment Operations
+
+- **URL**: `/api/statistics/payment-operations`
+- **Method**: `GET`
+- **Auth**: Admin only
+- **Description**: Get payment operations metrics
+- **Query Parameters**:
+  - `startDate` (optional): Filter by start date (YYYY-MM-DD)
+  - `endDate` (optional): Filter by end date (YYYY-MM-DD)
+- **Response**: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "refundMetrics": {
+        "count": 45,
+        "volume": 4500.00,
+        "rate": 4.5
+      },
+      "paymentMethodDistribution": [
+        {
+          "method": "credit_card",
+          "count": 800,
+          "percentage": 80.0
+        },
+        {
+          "method": "paypal",
+          "count": 200,
+          "percentage": 20.0
+        }
+      ]
+    }
+  }
+  ```
+
+#### Get Dashboard Statistics
+
+- **URL**: `/api/statistics/dashboard`
+- **Method**: `GET`
+- **Auth**: Admin only
+- **Description**: Get comprehensive dashboard statistics
+- **Query Parameters**:
+  - `startDate` (optional): Filter by start date (YYYY-MM-DD)
+  - `endDate` (optional): Filter by end date (YYYY-MM-DD)
+  - `groupBy` (optional): Group financial results by period - 'daily', 'weekly', or 'monthly'
+- **Response**: 
+  ```json
+  {
+    "success": true,
+    "data": {
+      "transactionVolumes": { /* Transaction volume metrics */ },
+      "performanceMetrics": { /* Performance metrics */ },
+      "financialAnalysis": { /* Financial analysis metrics */ },
+      "paymentOperations": { /* Payment operation metrics */ },
+      "generatedAt": "2023-07-01T12:00:00Z"
     }
   }
   ```

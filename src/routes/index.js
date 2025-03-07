@@ -3,6 +3,7 @@ const router = express.Router();
 const paymentRoutes = require('./paymentRoutes');
 const invoiceRoutes = require('./invoiceRoutes');
 const reportRoutes = require('./reportRoutes');
+const statisticsRoutes = require('./statisticsRoutes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -13,5 +14,6 @@ router.get('/health', (req, res) => {
 router.use('/payments', paymentRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/reports', reportRoutes);
+router.use('/statistics', statisticsRoutes);
 
 module.exports = router;

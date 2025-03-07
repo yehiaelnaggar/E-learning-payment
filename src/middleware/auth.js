@@ -2,6 +2,8 @@ const axios = require('axios');
 const { logger } = require('../utils/logger');
 const { AppError } = require('./errorHandler');
 
+
+
 /**
  * Validate the authentication token
  */
