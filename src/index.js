@@ -14,9 +14,15 @@ const invoiceRoutes = require('./routes/invoiceRoutes');
 const refundRoutes = require('./routes/refundRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const payoutRoutes = require('./routes/payoutRoutes');
 
 const app = express();
 
+app.use(async (req, res, next) => {
+  // Log request to the console
+  logger.info(`${req.method} ${req.originalUrl}`);
+  next();
+})
 // Middleware
 // Security middleware
 app.use(helmet({
@@ -45,6 +51,7 @@ app.use(cors({
   maxAge: 86400 // 24 hours
 }));
 
+
 app.use(express.json({ 
   verify: (req, res, buf) => {
     // Store raw body for Stripe webhook verification
@@ -53,6 +60,7 @@ app.use(express.json({
     }
   }
 }));
+
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
 // Create temp directory if it doesn't exist
@@ -67,12 +75,15 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+
+
 // Routes
 app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/payouts', payoutRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

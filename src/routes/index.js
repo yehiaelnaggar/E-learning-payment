@@ -4,6 +4,7 @@ const paymentRoutes = require('./paymentRoutes');
 const invoiceRoutes = require('./invoiceRoutes');
 const reportRoutes = require('./reportRoutes');
 const statisticsRoutes = require('./statisticsRoutes');
+const payoutRoutes = require('./payoutRoutes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -15,5 +16,6 @@ router.use('/payments', paymentRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/reports', reportRoutes);
 router.use('/statistics', statisticsRoutes);
+router.use('/payouts', payoutRoutes);
 
 module.exports = router;

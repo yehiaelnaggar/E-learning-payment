@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const statisticsController = require('../controllers/statisticsController');
-const { validateToken, requireRole  } = require('../middleware/auth');
+const { validateToken, requireRole } = require('../middleware/auth');
 
 /**
  * @route   GET /api/statistics/transaction-volumes
@@ -61,6 +61,17 @@ router.get(
   validateToken, 
   authorizeRoles('ADMIN'),
   statisticsController.getDashboardStatistics
+);
+
+/**
+ * @route   GET /api/statistics/educators/:educatorId/payment-analytics
+ * @desc    Get detailed payment analytics for an educator
+ * @access  Educator (own analytics) or Admin
+ */
+router.get(
+  '/educators/:educatorId/payment-analytics',
+  validateToken,
+  statisticsController.getEducatorPaymentAnalytics
 );
 
 module.exports = router;

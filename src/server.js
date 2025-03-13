@@ -7,8 +7,9 @@ const server = app.listen(PORT, () => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+    
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Application specific handling logic here
+
 });
 
 process.on('uncaughtException', (error) => {

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Course Payment</title>
+  <!-- Add Stripe JS -->
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+    }
+    
+    .container {
+      background-color: #f9f9f9;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #4a4a4a;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      background-color: white;
+    }
+    
+    #card-element {
+      background-color: white;
+      padding: 16px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    
+    #card-errors {
+      color: #dc3545;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      margin-top: 20px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
+    .payment-success {
+      background-color: #dff0d8;
+      color: #3c763d;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 4px;
+      text-align: center;
+      display: none;
+    }
+    
+    .payment-error {
+      background-color: #f2dede;
+      color: #a94442;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 4px;
+      text-align: center;
+      display: none;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Course Payment</h1>
+    
+    <form id="payment-form">
+      <div class="form-group">
+        <label for="course">Select Course</label>
+        <select id="course" required>
+          <option value="">Select a course</option>
+          <option value="course_1">Web Development Bootcamp ($99.99)</option>
+          <option value="course_2">Data Science Fundamentals ($149.99)</option>
+          <option value="course_3">Machine Learning Masterclass ($199.99)</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="currency">Currency</label>
+        <select id="currency" required>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="card-element">Credit or debit card</label>
+        <div id="card-element"></div>
+        <div id="card-errors" role="alert"></div>
+      </div>
+      
+      <button type="submit" id="submit-button">
+        Pay Now
+        <span id="spinner" class="spinner" style="display: none;"></span>
+      </button>
+    </form>
+    
+    <div id="payment-success" class="payment-success">
+      Payment successful! Thank you for your purchase.
+    </div>
+    
+    <div id="payment-error" class="payment-error">
+      Payment failed. Please try again.
+    </div>
+  </div>
+
+  <script src="payment.js"></script>
+</body>
+</html>

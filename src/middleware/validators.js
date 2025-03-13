@@ -94,9 +94,17 @@ const validate = (schema) => {
         if (rules.type === 'number' && !isNaN(Number(value))) {
           // Convert string numbers to actual numbers
           req.body[field] = Number(value);
-        } else {
+        } else if (rules.type === 'boolean' && ['true', 'false'].includes(value)) {
+          // Convert string booleans to actual booleans
+          req.body[field] = value === 'true';
+        } else if (rules.type === 'date') {
+          // Date validation is handled separately below
+          continue;
+        }
+        else {
           errors.push(`${field} must be a ${rules.type}`);
         }
+
       }
       
       // Min/max validation for numbers
@@ -113,6 +121,46 @@ const validate = (schema) => {
       if (rules.enum && !rules.enum.includes(value)) {
         errors.push(`${field} must be one of: ${rules.enum.join(', ')}`);
       }
+
+      // Length validation for strings
+      if (typeof value === 'string' && rules.maxLength && value.length > rules.maxLength) {
+        errors.push(`${field} must be at most ${rules.maxLength} characters`);
+      }
+
+      // positive validation for numbers
+      if (rules.positive && value <= 0) {
+        errors.push(`${field} must be greater than 0`);
+      }
+
+      // Date validation
+      if (rules.type === 'date') {
+        // If value is already a Date object
+        if (value instanceof Date) {
+          if (!isNaN(value.getTime())) {
+            continue; // Valid Date object, skip further validation
+          } else {
+            errors.push(`${field} must be a valid date`);
+            continue;
+          }
+        }
+        
+        try {
+          // Try to parse the date
+          const dateObj = new Date(value);
+          
+          // Check if it's a valid date
+          if (isNaN(dateObj.getTime())) {
+            errors.push(`${field} must be a valid date`);
+          } else {
+            // Successfully parsed, store the Date object
+            req.body[field] = dateObj;
+            console.log(1);
+          }
+        } catch (e) {
+          errors.push(`${field} must be a valid date`);
+        }
+      }
+
     }
     
     // Return validation errors if any

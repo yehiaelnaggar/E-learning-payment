@@ -108,10 +108,39 @@ const getDashboardStatistics = async (req, res, next) => {
   }
 };
 
+/**
+ * Get educator payment analytics
+ */
+const getEducatorPaymentAnalytics = async (req, res, next) => {
+  try {
+    const { educatorId } = req.params;
+    
+    // Check authorization
+    if (req.user.role !== 'ADMIN' && req.user.id !== educatorId) {
+      return next(new AppError('You are not authorized to view these analytics', 403));
+    }
+    
+    const filters = {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate
+    };
+    
+    const data = await statisticsService.getEducatorPaymentAnalytics(educatorId, filters);
+    
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTransactionVolumes,
   getPerformanceMetrics,
   getFinancialAnalysis,
   getPaymentOperations,
-  getDashboardStatistics
+  getDashboardStatistics,
+  getEducatorPaymentAnalytics
 };

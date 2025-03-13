@@ -349,6 +349,100 @@ const getEducatorEarningsReport = async (educatorId) => {
 };
 
 /**
+ * Generate commission analysis report
+ */
+const generateCommissionReport = async (filters = {}) => {
+  try {
+    const { startDate, endDate, educatorId } = filters;
+    
+    // Build query conditions
+    const dateWhere = buildDateFilter(startDate, endDate);
+    const educatorWhere = educatorId ? prisma.sql`AND "educatorId" = ${educatorId}` : prisma.sql``;
+    
+    // Get overall commission summary
+    const commissionSummary = await prisma.$queryRaw`
+      SELECT
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "platformCommission" ELSE 0 END) as "totalCommission",
+        SUM(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN "platformCommission" ELSE 0 END) as "refundedCommission",
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) as "totalEducatorEarnings",
+        SUM(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) as "refundedEducatorEarnings",
+        SUM(CASE WHEN "status" = 'COMPLETED' THEN "amount" ELSE 0 END) as "totalTransactionAmount",
+        AVG(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "platformCommission" / "amount" * 100 ELSE NULL END) as "averageCommissionRate"
+      FROM "Transaction"
+      WHERE 1=1
+      ${dateWhere ? prisma.sql`AND ${dateWhere}` : prisma.sql``}
+      ${educatorWhere}
+    `;
+    
+    // Get commission by educator (if not filtered to specific educator)
+    let commissionByEducator = [];
+    if (!educatorId) {
+      commissionByEducator = await prisma.$queryRaw`
+        SELECT
+          "educatorId",
+          COUNT(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN 1 END) as "totalTransactions",
+          SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "amount" ELSE 0 END) as "totalRevenue",
+          SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "platformCommission" ELSE 0 END) as "platformCommission",
+          SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) as "educatorEarnings",
+          AVG(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "platformCommission" / "amount" * 100 ELSE NULL END) as "effectiveCommissionRate"
+        FROM "Transaction"
+        WHERE 1=1
+        ${dateWhere ? prisma.sql`AND ${dateWhere}` : prisma.sql``}
+        GROUP BY "educatorId"
+        ORDER BY "platformCommission" DESC
+      `;
+    }
+    
+    // Get commission trend over time (monthly)
+    const commissionTrend = await prisma.$queryRaw`
+      SELECT
+        DATE_TRUNC('month', "createdAt") as "month",
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "platformCommission" ELSE 0 END) as "platformCommission",
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) as "educatorEarnings",
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "amount" ELSE 0 END) as "totalRevenue"
+      FROM "Transaction"
+      WHERE 1=1
+      ${dateWhere ? prisma.sql`AND ${dateWhere}` : prisma.sql``}
+      ${educatorWhere}
+      GROUP BY DATE_TRUNC('month', "createdAt")
+      ORDER BY DATE_TRUNC('month', "createdAt")
+    `;
+    
+    return {
+      summary: {
+        totalCommission: Number(commissionSummary[0]?.totalCommission) || 0,
+        refundedCommission: Math.abs(Number(commissionSummary[0]?.refundedCommission) || 0),
+        netCommission: Number(commissionSummary[0]?.totalCommission) - Math.abs(Number(commissionSummary[0]?.refundedCommission) || 0),
+        totalEducatorEarnings: Number(commissionSummary[0]?.totalEducatorEarnings) || 0,
+        refundedEducatorEarnings: Math.abs(Number(commissionSummary[0]?.refundedEducatorEarnings) || 0),
+        netEducatorEarnings: Number(commissionSummary[0]?.totalEducatorEarnings) - Math.abs(Number(commissionSummary[0]?.refundedEducatorEarnings) || 0),
+        totalAmount: Number(commissionSummary[0]?.totalTransactionAmount) || 0,
+        averageCommissionRate: Number(commissionSummary[0]?.averageCommissionRate) || 0
+      },
+      educatorAnalysis: commissionByEducator.map(item => ({
+        educatorId: item.educatorId,
+        totalTransactions: Number(item.totalTransactions),
+        totalRevenue: Number(item.totalRevenue),
+        platformCommission: Number(item.platformCommission),
+        educatorEarnings: Number(item.educatorEarnings),
+        effectiveCommissionRate: Number(item.effectiveCommissionRate)
+      })),
+      monthlyTrend: commissionTrend.map(item => ({
+        month: item.month,
+        platformCommission: Number(item.platformCommission),
+        educatorEarnings: Number(item.educatorEarnings),
+        totalRevenue: Number(item.totalRevenue),
+        platformShare: Number(item.platformCommission) / Number(item.totalRevenue) * 100,
+        educatorShare: Number(item.educatorEarnings) / Number(item.totalRevenue) * 100
+      }))
+    };
+  } catch (error) {
+    logger.error(`Error generating commission report: ${error.message}`, { error });
+    throw new AppError('Failed to generate commission report', 500);
+  }
+};
+
+/**
  * Format a number for display in reports
  */
 const formatNumber = (num) => {
@@ -384,5 +478,6 @@ module.exports = {
   generateFinancialReport,
   generateFinancialReportPDF,
   getEducatorEarningsReport,
-  deleteTempPDF
+  deleteTempPDF,
+  generateCommissionReport
 };

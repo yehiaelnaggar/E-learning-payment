@@ -38,4 +38,15 @@ router.get(
   reportController.getEducatorEarningsReport
 );
 
+/**
+ * @route   GET /api/reports/commission-analysis
+ * @desc    Get commission analysis report
+ * @access  Admin can view all, Educators can view their own
+ */
+router.get(
+  '/commission-analysis',
+  validateToken,
+  reportController.getCommissionAnalysisReport
+);
+
 module.exports = router;

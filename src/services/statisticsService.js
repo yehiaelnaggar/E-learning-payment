@@ -272,6 +272,111 @@ const getDashboardStatistics = async (filters = {}) => {
 };
 
 /**
+ * Get educator payment analytics
+ * @param {string} educatorId - Educator ID
+ * @param {Object} filters - Filter parameters (startDate, endDate)
+ * @returns {Promise<Object>} Educator payment analytics
+ */
+const getEducatorPaymentAnalytics = async (educatorId, filters = {}) => {
+  try {
+    const { startDate, endDate } = filters;
+    const dateWhere = buildDateFilter(startDate, endDate);
+
+    // Get overall earnings statistics
+    const earningsStats = await prisma.$queryRaw`
+      SELECT 
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) as "totalEarnings",
+        SUM(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN ABS("educatorEarnings") ELSE 0 END) as "totalRefunds",
+        COUNT(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN 1 END) as "totalSales",
+        COUNT(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN 1 END) as "totalRefundCount",
+        AVG(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE NULL END) as "avgEarningsPerSale"
+      FROM "Transaction"
+      WHERE "educatorId" = ${educatorId}
+      ${dateWhere ? prisma.sql`AND ${dateWhere}` : prisma.sql``}
+    `;
+
+    // Get payout statistics
+    const payoutStats = await prisma.$queryRaw`
+      SELECT
+        COUNT(*) as "totalPayouts",
+        SUM(CASE WHEN "status" = 'COMPLETED' THEN "amount" ELSE 0 END) as "totalPaidOut",
+        AVG(CASE WHEN "status" = 'COMPLETED' THEN "amount" ELSE NULL END) as "avgPayoutAmount",
+        AVG(CASE WHEN "status" = 'COMPLETED' THEN "processingFee" ELSE NULL END) as "avgProcessingFee"
+      FROM "Payout"
+      WHERE "educatorId" = ${educatorId}
+      ${dateWhere ? prisma.sql`AND ("requestedAt" ${dateWhere})` : prisma.sql``}
+    `;
+
+    // Get earnings by month
+    const monthlyEarnings = await prisma.$queryRaw`
+      SELECT
+        DATE_TRUNC('month', "createdAt") as "month",
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) -
+        SUM(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN ABS("educatorEarnings") ELSE 0 END) as "netEarnings",
+        COUNT(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN 1 END) as "salesCount"
+      FROM "Transaction"
+      WHERE "educatorId" = ${educatorId}
+      ${dateWhere ? prisma.sql`AND ${dateWhere}` : prisma.sql``}
+      GROUP BY DATE_TRUNC('month', "createdAt")
+      ORDER BY DATE_TRUNC('month', "createdAt")
+    `;
+
+    // Get earnings by course
+    const courseEarnings = await prisma.$queryRaw`
+      SELECT
+        "courseId",
+        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) -
+        SUM(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN ABS("educatorEarnings") ELSE 0 END) as "netEarnings",
+        COUNT(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN 1 END) as "salesCount",
+        COUNT(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN 1 END) as "refundCount"
+      FROM "Transaction"
+      WHERE "educatorId" = ${educatorId}
+      ${dateWhere ? prisma.sql`AND ${dateWhere}` : prisma.sql``}
+      GROUP BY "courseId"
+      ORDER BY "netEarnings" DESC
+    `;
+
+    return {
+      earnings: {
+        totalEarnings: Number(earningsStats[0]?.totalEarnings) || 0,
+        totalRefunds: Number(earningsStats[0]?.totalRefunds) || 0,
+        netEarnings: (Number(earningsStats[0]?.totalEarnings) || 0) - (Number(earningsStats[0]?.totalRefunds) || 0),
+        totalSales: Number(earningsStats[0]?.totalSales) || 0,
+        totalRefundCount: Number(earningsStats[0]?.totalRefundCount) || 0,
+        avgEarningsPerSale: Number(earningsStats[0]?.avgEarningsPerSale) || 0,
+        refundRate: Number(earningsStats[0]?.totalSales) > 0 
+          ? (Number(earningsStats[0]?.totalRefundCount) / Number(earningsStats[0]?.totalSales)) * 100 
+          : 0
+      },
+      payouts: {
+        totalPayouts: Number(payoutStats[0]?.totalPayouts) || 0,
+        totalPaidOut: Number(payoutStats[0]?.totalPaidOut) || 0,
+        avgPayoutAmount: Number(payoutStats[0]?.avgPayoutAmount) || 0,
+        avgProcessingFee: Number(payoutStats[0]?.avgProcessingFee) || 0,
+        pendingEarnings: (Number(earningsStats[0]?.totalEarnings) || 0) - (Number(earningsStats[0]?.totalRefunds) || 0) - (Number(payoutStats[0]?.totalPaidOut) || 0)
+      },
+      monthlyEarnings: monthlyEarnings.map(month => ({
+        month: month.month,
+        netEarnings: Number(month.netEarnings) || 0,
+        salesCount: Number(month.salesCount) || 0
+      })),
+      courseEarnings: courseEarnings.map(course => ({
+        courseId: course.courseId,
+        netEarnings: Number(course.netEarnings) || 0,
+        salesCount: Number(course.salesCount) || 0,
+        refundCount: Number(course.refundCount) || 0,
+        refundRate: Number(course.salesCount) > 0 
+          ? (Number(course.refundCount) / Number(course.salesCount)) * 100 
+          : 0
+      }))
+    };
+  } catch (error) {
+    logger.error(`Error fetching educator payment analytics: ${error.message}`, { error });
+    throw new AppError('Failed to fetch educator payment analytics', 500);
+  }
+};
+
+/**
  * Helper function to build date filter SQL condition
  */
 const buildDateFilter = (startDate, endDate) => {
@@ -290,5 +395,6 @@ module.exports = {
   getPerformanceMetrics,
   getFinancialAnalysis,
   getPaymentOperations,
-  getDashboardStatistics
+  getDashboardStatistics,
+  getEducatorPaymentAnalytics
 };

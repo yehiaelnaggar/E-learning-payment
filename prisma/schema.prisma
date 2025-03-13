@@ -28,6 +28,8 @@ model Transaction {
   updatedAt          DateTime          @updatedAt
   invoice            Invoice?
   auditLogs          AuditLog[]
+  payoutId           String?
+  payout             Payout?           @relation("PayoutTransactions", fields: [payoutId], references: [id])
 }
 
 model Invoice {
@@ -62,6 +64,42 @@ model AuditLog {
   createdAt     DateTime     @default(now())
 }
 
+model Payout {
+  id            String        @id @default(uuid())
+  payoutNumber  String        @unique
+  educatorId    String
+  amount        Float
+  currency      String        @default("USD")
+  status        PayoutStatus
+  processingFee Float         @default(0)
+  paymentMethod String
+  bankDetails   Json?
+  description   String?
+  periodStart   DateTime
+  periodEnd     DateTime
+  requestedAt   DateTime      @default(now())
+  processedAt   DateTime?
+  transactions  Transaction[] @relation("PayoutTransactions")
+  notes         String?
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model stripeAccount {
+  id  String @id @default(uuid())
+  educatorId String
+  email String
+  stripeAccountId String
+  stripeBankAccount String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([educatorId], name: "stripeAccount_educatorId_index")
+  @@unique([educatorId], name: "stripeAccount_educatorId_unique")
+}
+
+
+
 enum TransactionStatus {
   PENDING
   COMPLETED
@@ -79,5 +117,13 @@ enum InvoiceStatus {
   DRAFT
   ISSUED
   PAID
+  CANCELLED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
   CANCELLED
 }

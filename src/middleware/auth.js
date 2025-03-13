@@ -31,10 +31,13 @@ const validateToken = async (req, res, next) => {
       if (!response.data.valid) {
         throw new AppError('Invalid or expired token', 401);
       }
+
+      
       
       // Attach user info to request
       req.user = response.data.user;
       next();
+
     } catch (axiosError) {
       // Handle network errors or service unavailable scenarios
       if (!axiosError.response) {
@@ -92,10 +95,18 @@ const mockAuthMiddleware = (role = 'USER') => {
   };
 };
 
+const mockEducatorAuthMiddleware = (req, res, next) => {
+  req.user = {
+    id: 'edu_123',
+    role: 'ADMIN', 
+  }
+  next();
+};
 
 
 module.exports = {
   validateToken,
   requireRole,
   mockAuthMiddleware,
+  mockEducatorAuthMiddleware,
 };

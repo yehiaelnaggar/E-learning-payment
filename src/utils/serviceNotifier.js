@@ -2,94 +2,88 @@ const axios = require('axios');
 const { logger } = require('./logger');
 
 /**
- * Notify user service about payment events
+ * Send notification to user service
  */
 const notifyUserService = async (data) => {
   try {
-    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:5001';
-    const response = await axios.post(`${userServiceUrl}/api/internal/enrollment`, data, {
+    if (!process.env.USER_SERVICE_URL) {
+      logger.warn('USER_SERVICE_URL not set. Notification not sent.');
+      return;
+    }
+    
+    await axios.post(`${process.env.USER_SERVICE_URL}/api/notifications`, data, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Service-Key': process.env.INTERNAL_API_KEY || 'payment-service-key',
-      },
-      timeout: 5000,
+        'X-Service-Auth': process.env.INTERNAL_API_KEY
+      }
     });
     
-    logger.info(`User service notified successfully: ${JSON.stringify(response.data)}`);
-    return response.data;
+    logger.info(`User service notified: ${data.action} for user ${data.userId}`);
   } catch (error) {
-    logger.error(`Failed to notify user service: ${error.message}`, {
-      error: error.response ? error.response.data : error.message,
+    logger.error(`Failed to notify user service: ${error.message}`, { 
+      error, 
+      data 
     });
-    
-    // Return the error but don't throw, as this shouldn't stop the payment process
-    return {
-      success: false,
-      error: error.response ? error.response.data : error.message,
-    };
+    // Fail silently - don't break the main flow
   }
 };
 
 /**
- * Notify course service about payment events
+ * Send notification to course service
  */
 const notifyCourseService = async (data) => {
   try {
-    const courseServiceUrl = process.env.COURSE_SERVICE_URL || 'http://localhost:5000';
-    const response = await axios.post(`${courseServiceUrl}/api/internal/purchase`, data, {
+    if (!process.env.COURSE_SERVICE_URL) {
+      logger.warn('COURSE_SERVICE_URL not set. Notification not sent.');
+      return;
+    }
+    
+    await axios.post(`${process.env.COURSE_SERVICE_URL}/api/notifications`, data, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Service-Key': process.env.INTERNAL_API_KEY || 'payment-service-key',
-      },
-      timeout: 5000,
+        'X-Service-Auth': process.env.INTERNAL_API_KEY
+      }
     });
     
-    logger.info(`Course service notified successfully: ${JSON.stringify(response.data)}`);
-    return response.data;
+    logger.info(`Course service notified: ${data.action} for course ${data.courseId}`);
   } catch (error) {
-    logger.error(`Failed to notify course service: ${error.message}`, {
-      error: error.response ? error.response.data : error.message,
+    logger.error(`Failed to notify course service: ${error.message}`, { 
+      error, 
+      data 
     });
-    
-    // Return the error but don't throw, as this shouldn't stop the payment process
-    return {
-      success: false,
-      error: error.response ? error.response.data : error.message,
-    };
+    // Fail silently - don't break the main flow
   }
 };
 
 /**
- * Notify notification service to send email
+ * Send notification to educator dashboard
  */
-const notifyEmailService = async (emailData) => {
+const notifyEducatorDashboard = async (data) => {
   try {
-    const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5003';
-    const response = await axios.post(`${notificationServiceUrl}/api/notifications/email`, emailData, {
+    if (!process.env.EDUCATOR_DASHBOARD_URL) {
+      logger.warn('EDUCATOR_DASHBOARD_URL not set. Notification not sent.');
+      return;
+    }
+    
+    await axios.post(`${process.env.EDUCATOR_DASHBOARD_URL}/api/notifications`, data, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Service-Key': process.env.INTERNAL_API_KEY || 'payment-service-key',
-      },
-      timeout: 5000,
+        'X-Service-Auth': process.env.INTERNAL_API_KEY
+      }
     });
     
-    logger.info(`Email notification sent successfully`);
-    return response.data;
+    logger.info(`Educator dashboard notified: ${data.action} for educator ${data.educatorId}`);
   } catch (error) {
-    logger.error(`Failed to send email notification: ${error.message}`, {
-      error: error.response ? error.response.data : error.message,
+    logger.error(`Failed to notify educator dashboard: ${error.message}`, { 
+      error, 
+      data 
     });
-    
-    // Return the error but don't throw
-    return {
-      success: false,
-      error: error.response ? error.response.data : error.message,
-    };
+    // Fail silently - don't break the main flow
   }
 };
 
 module.exports = {
   notifyUserService,
   notifyCourseService,
-  notifyEmailService,
+  notifyEducatorDashboard
 };

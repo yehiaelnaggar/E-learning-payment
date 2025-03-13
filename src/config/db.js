@@ -1,60 +1,33 @@
 const { PrismaClient } = require('@prisma/client');
-const { logger } = require('../utils/logger');
+const baseLogger = require('../utils/baseLogger');
 
-// Create a new Prisma client instance
+// Create a singleton instance of the Prisma client
 const prisma = new PrismaClient({
-  log: [
-    {
-      emit: 'event',
-      level: 'query',
-    },
-    {
-      emit: 'event',
-      level: 'error',
-    },
-    {
-      emit: 'event',
-      level: 'info',
-    },
-    {
-      emit: 'event',
-      level: 'warn',
-    },
-  ],
+  log: process.env.NODE_ENV === 'development' 
+    ? ['query', 'info', 'warn', 'error'] 
+    : ['error'],
 });
 
-// Log queries in development environment
-if (process.env.NODE_ENV === 'development') {
-  prisma.$on('query', (e) => {
-    logger.debug(`Query: ${e.query}`, { params: e.params, duration: e.duration });
-  });
-}
-
-// Log errors
-prisma.$on('error', (e) => {
-  logger.error(`Prisma error: ${e.message}`);
-});
-
-// Test database connection
+// Handle connection errors
 prisma.$connect()
   .then(() => {
-    logger.info('Successfully connected to the database');
+    baseLogger.info('Database connection established');
   })
-  .catch((error) => { 
-    logger.error(`Failed to connect to the database: ${error.message}`, { error });
-    
-    // Don't exit in test environment to prevent Jest from crashing
-    if (process.env.NODE_ENV !== 'test') {
-      process.exit(1);
-    }
+  .catch((error) => {
+    baseLogger.error('Database connection error:', error);
+    process.exit(1);
   });
 
-// Graceful shutdown
+// Handle graceful shutdown
 process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  logger.info('Database connection closed');
-  process.exit(0);
+  try {
+    await prisma.$disconnect();
+    baseLogger.info('Database connection closed');
+    process.exit(0);
+  } catch (error) {
+    baseLogger.error('Error during database disconnection:', error);
+    process.exit(1);
+  }
 });
 
-// Export the prisma client
 module.exports = prisma;

@@ -125,8 +125,36 @@ const getEducatorEarningsReport = async (req, res, next) => {
   }
 };
 
+/**
+ * Generate commission analysis report
+ */
+const getCommissionAnalysisReport = async (req, res, next) => {
+  try {
+    const filters = {
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      educatorId: req.query.educatorId
+    };
+    
+    // Check authorization - admins can see all, educators can only see their own data
+    if (req.user.role !== 'ADMIN' && req.query.educatorId && req.query.educatorId !== req.user.id) {
+      return next(new AppError('You are not authorized to view this report', 403));
+    }
+    
+    const report = await reportingService.generateCommissionReport(filters);
+    
+    res.status(200).json({
+      success: true,
+      data: report
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   generateFinancialReport,
   downloadFinancialReportPDF,
-  getEducatorEarningsReport
+  getEducatorEarningsReport,
+  getCommissionAnalysisReport
 };
