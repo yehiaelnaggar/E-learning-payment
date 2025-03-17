@@ -11,7 +11,7 @@ const { validateToken, requireRole } = require('../middleware/auth');
 router.get(
   '/transaction-volumes', 
   validateToken, 
-  authorizeRoles('ADMIN'),
+  requireRole('ADMIN'),
   statisticsController.getTransactionVolumes
 );
 
@@ -23,7 +23,7 @@ router.get(
 router.get(
   '/performance-metrics', 
   validateToken, 
-  authorizeRoles('ADMIN'),
+  requireRole('ADMIN'),
   statisticsController.getPerformanceMetrics
 );
 
@@ -35,7 +35,7 @@ router.get(
 router.get(
   '/financial-analysis', 
   validateToken, 
-  authorizeRoles('ADMIN'),
+  requireRole('ADMIN'),
   statisticsController.getFinancialAnalysis
 );
 
@@ -47,7 +47,7 @@ router.get(
 router.get(
   '/payment-operations', 
   validateToken, 
-  authorizeRoles('ADMIN'),
+  requireRole('ADMIN'),
   statisticsController.getPaymentOperations
 );
 
@@ -59,7 +59,7 @@ router.get(
 router.get(
   '/dashboard', 
   validateToken, 
-  authorizeRoles('ADMIN'),
+  requireRole('ADMIN'),
   statisticsController.getDashboardStatistics
 );
 

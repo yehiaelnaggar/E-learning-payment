@@ -8,6 +8,7 @@ const {
 } = require("../utils/serviceNotifier");
 const invoiceService = require("./invoiceService");
 const { application } = require("express");
+const app = require("..");
 
 const PLATFORM_COMMISSION_PERCENTAGE =
   parseFloat(process.env.PLATFORM_COMMISSION_PERCENTAGE) || 20;
@@ -49,10 +50,8 @@ const processPayment = async (paymentData, user) => {
       throw new AppError("User already enrolled in this course", 400);
     }
     // 1. Calculate revenue split between platform and educator
-    const {platformCommission , educatorEarnings } = await calculatePlatformCommission(
-      amount,
-      educatorId
-    );
+    const { platformCommission, educatorEarnings } =
+      await calculatePlatformCommission(amount, educatorId);
 
     logger.info(
       `Payment split: Amount: $${amount}, Platform: $${platformCommission}, Educator: $${educatorEarnings}`
@@ -69,13 +68,13 @@ const processPayment = async (paymentData, user) => {
         userId: user.id,
         educatorId,
       },
-      application_fee_amount: platformCommission * 100 ,
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never', // Disable redirect-based payment methods
-      },
+      application_fee_amount: platformCommission * 100,
       transfer_data: {
         destination: educatorAccount.stripeAccountId,
+      },
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: "never", // Disable redirect-based payment methods
       },
     });
 
@@ -143,7 +142,7 @@ const processPayment = async (paymentData, user) => {
         courseId,
         transactionId: transaction.id,
         amount: educatorEarnings,
-        totalPendingEarnings: await getTotalPendingEarnings(educatorId),
+        totalPendingEarnings: getTotalEarningsForEducator(educatorId),
       },
     });
 
@@ -197,23 +196,48 @@ const processPayment = async (paymentData, user) => {
 
 /**
  * Get total pending earnings for an educator
- * @private
+ * @param {string} educatorId - Educator ID
+ * @throws {AppError} If an error occurs while fetching earnings
+ * @returns {number} Total earnings for the educator
  */
-const getTotalPendingEarnings = async (educatorId) => {
+const getTotalEarningsForEducator = async (educatorId) => {
   try {
-    const result = await prisma.$queryRaw`
-      SELECT
-        SUM(CASE WHEN "type" = 'PAYMENT' AND "status" = 'COMPLETED' THEN "educatorEarnings" ELSE 0 END) -
-        SUM(CASE WHEN "type" = 'REFUND' AND "status" = 'COMPLETED' THEN ABS("educatorEarnings") ELSE 0 END) as "pendingAmount"
-      FROM "Transaction"
-      WHERE "educatorId" = ${educatorId}
-      AND "payoutId" IS NULL
-    `;
+    const totalEarnings = await prisma.transaction.aggregate({
+      where: {
+        educatorId,
+        status: { in: ["COMPLETED", "REFUNDED"] },
+      },
+      _sum: {
+        educatorEarnings: true,
+      },
+    });
 
-    return Number(result[0]?.pendingAmount) || 0;
+    return totalEarnings._sum?.educatorEarnings || 0;
   } catch (error) {
-    logger.error(`Error calculating pending earnings: ${error.message}`);
-    return 0;
+    throw new AppError(`Error fetching total earnings: ${error.message}`, 500);
+  }
+};
+
+/**
+ *
+ * @param {string} educatorId
+ * @throws {AppError} If an error occurs while fetching earnings
+ * @returns {number} Current balance for the educator
+ */
+const getCurrentBalanceForEducator = async (educatorId) => {
+  try {
+    const stripeAccount = await prisma.stripeAccount.findFirst({
+      where: {
+        educatorId,
+      },
+    });
+    const earnings = await stripe.balance.retrieve({
+      stripeAccount: stripeAccount.stripeAccountId,
+    });
+
+    return earnings.pending[0] ;
+  } catch (error) {
+    throw AppError(`Error fetching total earnings: ${error.message}`, 500);
   }
 };
 
@@ -253,12 +277,15 @@ const calculatePlatformCommission = async (amount, educatorId) => {
     ); // Commission based on net amount
     const educatorEarnings = Math.round(netAmount - platformCommission);
     // Ensure commission is within reasonable bounds
-    platformCommission = Math.min(Math.max(platformCommission, 1), amount * 0.5)
-    return { platformCommission ,educatorEarnings} ; // Min $1, max 50% of payment
+    platformCommission = Math.min(
+      Math.max(platformCommission, 1),
+      amount * 0.5
+    );
+    return { platformCommission, educatorEarnings }; // Min $1, max 50% of payment
   } catch (error) {
     logger.error(`Error calculating commission: ${error.message}`);
     // Fall back to default commission calculation
-    return {platformCommission , educatorEarnings}
+    return { platformCommission, educatorEarnings };
   }
 };
 
@@ -285,10 +312,21 @@ const processRefund = async (refundData, user) => {
 
     // 2. Process the refund with Stripe
     const refundAmount = amount || originalTransaction.amount;
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(
+      originalTransaction.stripeChargeId
+    );
+
+    const charge = await stripe.charges.retrieve(paymentIntent.latest_charge);
+
     const stripeRefund = await stripe.refunds.create({
-      charge: originalTransaction.stripeChargeId,
+      charge: paymentIntent.latest_charge,
       amount: Math.round(refundAmount * 100),
       reason: reason || "requested_by_customer",
+    });
+
+    const reversal = await stripe.transfers.createReversal(charge.transfer, {
+      amount: originalTransaction.educatorEarnings * 100,
     });
 
     // 3. Calculate updated commission and earnings
@@ -360,9 +398,6 @@ const processRefund = async (refundData, user) => {
         courseId: originalTransaction.courseId,
         transactionId: refundTransaction.id,
         amount: refundedEarnings,
-        totalPendingEarnings: await getTotalPendingEarnings(
-          originalTransaction.educatorId
-        ),
         reason,
       },
     });
@@ -516,10 +551,148 @@ const getTransactionsReport = async (filters = {}, page = 1, limit = 50) => {
   }
 };
 
+const createEducatorStripeAccount = async (req) => {
+  try {
+    // Validate required fields
+    if (!req.body.email) {
+      throw new AppError("Email is required for Stripe account creation", 400);
+    }
+
+    // Create the Stripe Connect Express account
+    const account = await stripe.accounts.create({
+      type: "custom",
+      country: "US",
+      email: req.body.email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      business_type: "individual",
+      individual: {
+        first_name: req.body.first_name,
+        last_name: req.body.last_name,
+        email: "test@example.com",
+        phone: "+18885551234",
+        address: {
+          line1: "123 Test St",
+          city: "San Francisco",
+          state: "CA",
+          postal_code: "94103",
+          country: "US",
+        },
+        dob: {
+          day: 15,
+          month: 6,
+          year: 1985,
+        },
+        ssn_last_4: "0000",
+      },
+      business_profile: {
+        mcc: "8299", // Education services
+        product_description: "Online education",
+      },
+      company: {
+        name: `${req.body.first_name} ${req.body.last_name}`,
+        tax_id: "000000000", // Use "000000000" for test purposes
+      },
+      tos_acceptance: {
+        service_agreement: "full",
+        date: Math.floor(Date.now() / 1000),
+        ip: req.ip,
+      },
+    });
+
+    const bank_account = await stripe.accounts.createExternalAccount(
+      account.id,
+      {
+        external_account: {
+          object: "bank_account",
+          country: "US",
+          currency: "usd",
+          routing_number: "110000000",
+          account_number: "000123456789",
+        },
+      }
+    );
+
+    const educatorStripeAccount = await prisma.stripeAccount.create({
+      data: {
+        educatorId: req.user.id,
+        email: req.body.email,
+        stripeAccountId: account.id,
+        stripeBankAccount: bank_account.id,
+      },
+    });
+
+    auditLogger.log(
+      "STRIPE_ACCOUNT_CREATED",
+      req.user.id,
+      `Stripe Connect account created for educator ${req.user.id}`,
+      null,
+      { accountId: account.id }
+    );
+
+    return { account };
+  } catch (error) {
+    logger.error(`Error creating Stripe account: ${error.message}`, { error });
+    if (
+      error.type === "StripePermissionError" ||
+      error.message.includes("Connect")
+    ) {
+      throw new AppError(
+        "To create Stripe Connect accounts, you need to sign up for Stripe Connect first. Learn more: https://stripe.com/docs/connect",
+        400
+      );
+    }
+    throw new AppError(`Error creating Stripe account: ${error.message}`, 400);
+  }
+};
+
+const deleteEducatorStripeAccount = async (req, account) => {
+  try {
+    const educatorId = req.user.id;
+    const educatorStripeAccount = await prisma.stripeAccount.findFirst({
+      where: { educatorId },
+    });
+
+    if (!educatorStripeAccount) {
+      throw new AppError("Educator Stripe account not found", 404);
+    }
+
+    // Delete the Stripe account
+    await stripe.accounts.del(account);
+
+    // Delete the local Stripe account record
+    await prisma.stripeAccount.delete({
+      where: { educatorId },
+    });
+
+    auditLogger.log(
+      "STRIPE_ACCOUNT_DELETED",
+      educatorId,
+      `Stripe Connect account deleted for educator ${educatorId}`,
+      null,
+      { accountId: account }
+    );
+  } catch (error) {
+    logger.error(`Error deleting educator account: ${error.message}`, {
+      error,
+    });
+    throw new AppError(
+      `Error deleting educator account: ${error.message}`,
+      400
+    );
+  }
+};
+
 module.exports = {
+  deleteEducatorStripeAccount,
+  createEducatorStripeAccount,
+  getCurrentBalanceForEducator,
   processPayment,
   processRefund,
   getTransactionById,
   getTransactionsByUser,
   getTransactionsReport,
+  getTotalEarningsForEducator,
 };

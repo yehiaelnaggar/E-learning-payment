@@ -1,7 +1,8 @@
+require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const reportController = require('../controllers/reportController');
-const { validateToken, requireRole } = require('../middleware/auth');
+const { validateToken, requireRole,mockEducatorAuthMiddleware } = require('../middleware/auth');
 
 /**
  * @route   GET /api/reports/financial
@@ -10,7 +11,7 @@ const { validateToken, requireRole } = require('../middleware/auth');
  */
 router.get(
   '/financial',
-  validateToken,
+  mockEducatorAuthMiddleware,
   requireRole('ADMIN', 'EDUCATOR'),
   reportController.generateFinancialReport
 );
@@ -22,7 +23,8 @@ router.get(
  */
 router.get(
   '/financial/pdf',
-  validateToken,
+  process.env.NODE_ENV === "development"
+    ? mockEducatorAuthMiddleware : validateToken,
   requireRole('ADMIN', 'EDUCATOR'),
   reportController.downloadFinancialReportPDF
 );
@@ -34,7 +36,8 @@ router.get(
  */
 router.get(
   '/educators/:educatorId/earnings',
-  validateToken,
+  process.env.NODE_ENV === "development"
+  ? mockEducatorAuthMiddleware : validateToken,
   reportController.getEducatorEarningsReport
 );
 
@@ -45,7 +48,8 @@ router.get(
  */
 router.get(
   '/commission-analysis',
-  validateToken,
+  process.env.NODE_ENV === "development"
+  ? mockEducatorAuthMiddleware : validateToken,
   reportController.getCommissionAnalysisReport
 );
 

@@ -9,12 +9,7 @@ const path = require('path');
 // Fix the logger import to use the destructured format
 const { logger } = require('./utils/logger');
 const { errorHandler } = require('./middleware/errorHandler');
-const paymentRoutes = require('./routes/paymentRoutes');
-const invoiceRoutes = require('./routes/invoiceRoutes');
-const refundRoutes = require('./routes/refundRoutes');
-const webhookRoutes = require('./routes/webhookRoutes');
-const reportRoutes = require('./routes/reportRoutes');
-const payoutRoutes = require('./routes/payoutRoutes');
+const router = require('./routes/index');
 
 const app = express();
 
@@ -78,12 +73,8 @@ if (!fs.existsSync(logsDir)) {
 
 
 // Routes
-app.use('/api/payments', paymentRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/refunds', refundRoutes);
-app.use('/api/webhooks', webhookRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/payouts', payoutRoutes);
+app.use('/api', router);
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {

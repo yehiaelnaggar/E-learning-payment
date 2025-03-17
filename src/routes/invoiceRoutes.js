@@ -1,6 +1,6 @@
 const express = require('express');
 const { param, query } = require('express-validator');
-const { validateToken, requireRole } = require('../middleware/auth');
+const { validateToken,mockAuthMiddleware, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validators');
 const invoiceController = require('../controllers/invoiceController');
 
@@ -16,7 +16,8 @@ router.get(
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
     query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
   ],
-  validate,
+  process.env.NODE_ENV === "development"
+    ? mockAuthMiddleware() : validateToken,
   invoiceController.getUserInvoices
 );
 
@@ -26,7 +27,8 @@ router.get(
   [
     param('invoiceId').notEmpty().withMessage('Invoice ID is required'),
   ],
-  validate,
+  process.env.NODE_ENV === "development"
+    ? mockAuthMiddleware() : validateToken,
   invoiceController.getInvoice
 );
 
@@ -36,7 +38,8 @@ router.get(
   [
     param('invoiceId').notEmpty().withMessage('Invoice ID is required'),
   ],
-  validate,
+  process.env.NODE_ENV === "development"
+    ? mockAuthMiddleware() : validateToken,
   invoiceController.downloadInvoicePdf
 );
 
@@ -48,7 +51,8 @@ router.get(
 //     query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50'),
 //     query('status').optional().isString().withMessage('Status must be a string'),
 //   ],
-//   validate,
+//   process.env.NODE_ENV === "development"
+//     // ? mockAuthMiddleware() : validateToken,
 //   requireRole('ADMIN'),
 //   invoiceController.getAllInvoices
 // );

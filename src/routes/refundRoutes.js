@@ -1,4 +1,5 @@
-const express = require('express');
+require('dotenv').config();
+const express = require('express'); 
 const { body } = require('express-validator');
 const { validateToken } = require('../middleware/auth');
 const paymentController = require('../controllers/paymentController');
@@ -6,7 +7,8 @@ const paymentController = require('../controllers/paymentController');
 const router = express.Router();
 
 // Middleware to protect all refund routes
-router.use(validateToken);
+router.use(process.env.NODE_ENV === "development"
+  ? mockAuthMiddleware() : validateToken,);
 
 // Process a refund (alternative route)
 router.post(

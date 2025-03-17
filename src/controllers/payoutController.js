@@ -204,42 +204,8 @@ const cancelPayout = async (req, res, next) => {
   }
 };
 
-const createEducatorAccount = async (req, res) => {
-  try {
-    const { account } =
-      await payoutService.createEducatorStripeAccount(req);
-    res.status(201).json({
-      success: true,
-      message: "Stripe account created successfully",
-      data: {
-        accountId: account.id,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const deleteEducatorAccount = async (req, res) => {
-  try {
-    const { account } = req.body;
-    const result = await payoutService.deleteEducatorStripeAccount(
-      req,
-      account
-    );
-    res.status(200).json({
-      success: true,
-      message: "Stripe account deleted successfully",
-      data: result,
-    });
-
-  } catch (error) {
-    next(error);
-  }
-};
 module.exports = {
-  deleteEducatorAccount,
-  createEducatorAccount,
+
   getEducatorPendingEarnings,
   requestPayout,
   processPayout,
