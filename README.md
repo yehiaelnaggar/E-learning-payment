@@ -943,3 +943,78 @@ The request body is the raw event data sent by Stripe, which varies by event typ
 }
 ```
 
+## Configuration Endpoints
+
+### GET /api/config
+Get all configuration parameters (admin only).
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "configs": [
+    {
+      "key": "payment_fee_percentage",
+      "value": "10",
+      "description": "Platform fee percentage for payments"
+    },
+    {
+      "key": "minimum_payout_amount",
+      "value": "50",
+      "description": "Minimum amount required for educator payouts"
+    }
+  ]
+}
+```
+
+### GET /api/config/:key
+Get a specific configuration parameter by key (admin only).
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "config": {
+    "key": "payment_fee_percentage",
+    "value": "10",
+    "description": "Platform fee percentage for payments"
+  }
+}
+```
+
+### PUT /api/config/:key
+Update a configuration parameter (admin only).
+
+**Required Body Parameters:**
+- value: string (new value for the config)
+
+**Request Body Example:**
+```json
+{
+  "value": "12"
+}
+```
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "config": {
+    "key": "payment_fee_percentage",
+    "value": "12",
+    "description": "Platform fee percentage for payments"
+  }
+}
+```
+
+### POST /api/config/reload
+Reload all configuration parameters from the database (admin only).
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "message": "Configuration successfully reloaded",
+  "configCount": 5
+}
+```
