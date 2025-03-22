@@ -33,10 +33,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            echo "${{ secrets.ENV_FILE }}" | sudo tee /home/ubuntu/.env > /dev/null
+            sudo mv /home/ubuntu/.env /app/.env
+            sudo chmod 600 /app/.env
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/e-learning-backend:latest
             sudo docker stop $(sudo docker container ls -q --filter "name=E-Learning") || true
             sudo docker container prune --force
             sudo docker image prune --force
             sudo docker run -d -p 3001:3000 --name E-Learning ${{ secrets.DOCKERHUB_USERNAME }}/e-learning-backend:latest
             sudo docker logs $(sudo docker container ls -q --filter "name=E-Learning") || true
+            exit
             
